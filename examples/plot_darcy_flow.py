@@ -8,6 +8,8 @@ In this example, we demonstrate how to use the small Darcy-Flow example we ship 
 # Import the library
 # ------------------
 # We first import our `neuralop` library and required dependencies.
+import sys
+sys.path.append('../')
 
 import matplotlib.pyplot as plt
 from neuralop.datasets import load_darcy_flow_small
@@ -68,3 +70,5 @@ ax.set_title('x: 2nd pos embedding')
 fig.suptitle('Visualizing one input sample', y=0.98)
 plt.tight_layout()
 fig.show()
+
+# %%
