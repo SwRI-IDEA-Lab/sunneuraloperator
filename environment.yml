@@ -2,15 +2,21 @@ name: fno
 channels:
 - conda-forge
 - pytorch
+- nvidia
+- bioconda
 - defaults
 dependencies:
 - wandb 
 - ruamel.yaml
+- pytorch::pytorch
+- pytorch::torchvision
+- pytorch::pytorch-cuda=11.8
 - tensorly
 - tensorly-torch
 - matplotlib
 - opt-einsum
 - h5py
+- snakemake
 - zarr
 - pip
 - pip:
