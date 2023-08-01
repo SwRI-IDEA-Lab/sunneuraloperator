@@ -8,7 +8,8 @@ to train a Tensorized Fourier-Neural Operator
 
 # %%
 # 
-
+import sys
+sys.path.append('../')
 
 import torch
 import matplotlib.pyplot as plt
@@ -19,7 +20,7 @@ from neuralop.datasets import load_darcy_flow_small
 from neuralop.utils import count_params
 from neuralop import LpLoss, H1Loss
 
-device = 'cpu'
+device = 'cuda'
 
 
 # %%
@@ -117,7 +118,7 @@ for index in range(3):
     # Ground-truth
     y = data['y']
     # Model prediction
-    out = model(x.unsqueeze(0))
+    out = model(x.unsqueeze(0).to(device))
 
     ax = fig.add_subplot(3, 3, index*3 + 1)
     ax.imshow(x[0], cmap='gray')
@@ -134,7 +135,7 @@ for index in range(3):
     plt.yticks([], [])
 
     ax = fig.add_subplot(3, 3, index*3 + 3)
-    ax.imshow(out.squeeze().detach().numpy())
+    ax.imshow(out.squeeze().detach().cpu().numpy())
     if index == 0: 
         ax.set_title('Model prediction')
     plt.xticks([], [])
@@ -143,3 +144,5 @@ for index in range(3):
 fig.suptitle('Inputs, ground-truth output and prediction.', y=0.98)
 plt.tight_layout()
 fig.show()
+
+# %%
