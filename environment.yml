@@ -1,0 +1,18 @@
+name: fno
+channels:
+- conda-forge
+- pytorch
+- defaults
+dependencies:
+- wandb 
+- ruamel.yaml
+- tensorly
+- tensorly-torch
+- matplotlib
+- opt-einsum
+- h5py
+- zarr
+- pip
+- pip:
+  - configmypy
+  - torch-harmonics
