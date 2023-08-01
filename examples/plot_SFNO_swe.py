@@ -8,7 +8,8 @@ to train a Spherical Fourier-Neural Operator
 
 # %%
 # 
-
+import sys
+sys.path.append('../')
 
 import torch
 import matplotlib.pyplot as plt
@@ -138,3 +139,5 @@ for index, resolution in enumerate([(32, 64), (64, 128)]):
 fig.suptitle('Inputs, ground-truth output and prediction.', y=0.98)
 plt.tight_layout()
 fig.show()
+
+# %%

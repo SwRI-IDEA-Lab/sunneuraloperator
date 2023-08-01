@@ -8,7 +8,8 @@ the small Darcy-Flow example we ship with the package
 
 # %%
 # 
-
+import sys
+sys.path.append('../')
 
 import torch
 import matplotlib.pyplot as plt
@@ -19,7 +20,7 @@ from neuralop.datasets import load_darcy_flow_small
 from neuralop.utils import count_params
 from neuralop import LpLoss, H1Loss
 
-device = 'cpu'
+device = 'cuda'
 
 
 # %%
