@@ -6,6 +6,7 @@ channels:
 - bioconda
 - defaults
 dependencies:
+- astropy
 - wandb 
 - ruamel.yaml
 - pytorch::pytorch
