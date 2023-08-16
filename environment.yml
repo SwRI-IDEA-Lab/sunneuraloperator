@@ -20,6 +20,8 @@ dependencies:
 - h5py
 - snakemake
 - zarr
+- xarray
+- cftime
 - pip
 - pip:
   - configmypy
