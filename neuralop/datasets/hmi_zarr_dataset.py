@@ -44,7 +44,7 @@ class HMIZarrDataset(Dataset):
                  transform_y = None, 
                  zarr_group:str='hmi',
                  hmi_channel:int=0, 
-                 cadence: timedelta = timedelta(minutes=93), 
+                 cadence: timedelta = timedelta(minutes=96), 
                  cadence_epsilon: timedelta = timedelta(minutes=5)):
         self.zarr_group = zarr_group
         self.hmi_channel = hmi_channel
@@ -80,11 +80,13 @@ class HMIZarrDataset(Dataset):
                                    enumerate(self.t_obs) if t.month in months])
         
         # filter to make sure that each x observation has a corresponding valid y
+        t_diff = np.median(np.diff(self.t_obs))
+        step = int(np.round(np.timedelta64(cadence)/t_diff))
         self.x_index = [i for (i, t) in selected_times 
-         if i+1 < len(selected_times) 
-            and (selected_times[i+1][1] - t) > self.cadence_window[0] 
-            and (selected_times[i+1][1] - t) < self.cadence_window[1]]
-        self.y_index = [i+1 for i in self.x_index]
+         if i+step < len(selected_times) 
+            and (selected_times[i+step][1] - t) > self.cadence_window[0] 
+            and (selected_times[i+step][1] - t) < self.cadence_window[1]]
+        self.y_index = [i+step for i in self.x_index]
         self.n_samples = len(self.x_index)
 
         # set up the commonly used slices
