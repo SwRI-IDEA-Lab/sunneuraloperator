@@ -61,6 +61,58 @@ class UnitGaussianNormalizer:
         self.mean = self.mean.to(device)
         self.std = self.std.to(device)
         return self
+    
+    
+# normalization, pointwise gaussian
+class HMINormalizer:
+    def __init__(self, mean, std, eps=0.00001, reduce_dim=[0]):
+        super().__init__()
+        self.reduce_dim = reduce_dim
+
+        # x could be in shape of ntrain*n or ntrain*T*n or ntrain*n*T
+        self.mean = torch.Tensor([mean])
+        self.std = torch.Tensor([std])
+        self.eps = torch.Tensor([eps])
+        
+    def __call__(self, x):
+        return self.encode(x)
+
+    def encode(self, x):
+        x -= self.mean
+        x /= (self.std + self.eps)
+        return x
+
+    def decode(self, x, sample_idx=None):
+        if sample_idx is None:
+            std = self.std + self.eps # n
+            mean = self.mean
+        else:
+            if len(self.mean.shape) == len(sample_idx[0].shape):
+                std = self.std[sample_idx] + self.eps  # batch*n
+                mean = self.mean[sample_idx]
+            if len(self.mean.shape) > len(sample_idx[0].shape):
+                std = self.std[:,sample_idx]+ self.eps # T*batch*n
+                mean = self.mean[:,sample_idx]
+
+        x *= std
+        x += mean
+
+        return x
+
+    def cuda(self):
+        self.mean = self.mean.cuda()
+        self.std = self.std.cuda()
+        return self
+
+    def cpu(self):
+        self.mean = self.mean.cpu()
+        self.std = self.std.cpu()
+        return self
+    
+    def to(self, device):
+        self.mean = self.mean.to(device)
+        self.std = self.std.to(device)
+        return self
 
 
 def count_params(model):

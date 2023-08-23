@@ -9,7 +9,7 @@ import pandas as pd
 import xarray as xr
 
 from .transforms import Normalizer, PositionalEmbedding
-
+from ..utils import HMINormalizer
 
 class HMIZarrDataset(Dataset):
     """PDE hmi dataset that reads fits files turned into a zarr folder
@@ -55,7 +55,7 @@ class HMIZarrDataset(Dataset):
                                "Resolution be larger than center_crop_size,"
                                f"found {center_crop_size}.")
         
-        resolution_to_step = {128:32, 256:16, 512:8, 1024:4,2048:2,4096:1}
+        resolution_to_step = {128:32, 256:16, 512:8, 1024:4, 2048:2, 4096:1}
         try:
             subsample_step = resolution_to_step[resolution]
         except KeyError:
@@ -112,11 +112,15 @@ class HMIZarrDataset(Dataset):
                 assert i < self.n_samples, f'Trying to access sample {i}'
                 f'of dataset with {self.n_samples} samples'
     
-        x = self.data[self.zarr_group][self.sample_slicer(self.x_index[idx])][self.crop_slice].load()
-        x = torch.tensor(x.data, dtype=torch.float32)
+        x = self.data[self.zarr_group][self.sample_slicer(self.x_index[idx])][self.crop_slice].load().data
+        if x.ndim == 2:
+            x = np.expand_dims(x,axis=0)
+        x = torch.tensor(x, dtype=torch.float32)
 
-        y = self.data[self.zarr_group][self.sample_slicer(self.y_index[idx])][self.crop_slice].load()
-        y = torch.tensor(y.data, dtype=torch.float32)
+        y = self.data[self.zarr_group][self.sample_slicer(self.y_index[idx])][self.crop_slice].load().data
+        if y.ndim == 2:
+            y = np.expand_dims(y,axis=0)
+        y = torch.tensor(y, dtype=torch.float32)
 
         if self.transform_x:
             x = self.transform_x(x)
@@ -126,34 +130,36 @@ class HMIZarrDataset(Dataset):
 
         return {'x': x, 'y': y}
     
-    def __getitems__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
+    # def __getitems__(self, idx):
+    #     if torch.is_tensor(idx):
+    #         idx = idx.tolist()
 
-        x = torch.tensor([self.data[self.zarr_group][self.sample_slicer(self.x_index[i])][self.crop_slice].load().data for i in idx],
-                         dtype=torch.float32)
-        y = torch.tensor([self.data[self.zarr_group][self.sample_slicer(self.y_index[i])][self.crop_slice].load().data for i in idx],
-                         dtype=torch.float32)
+    #     x = torch.tensor([self.data[self.zarr_group][self.sample_slicer(self.x_index[i])][self.crop_slice].load().data for i in idx],
+    #                      dtype=torch.float32)
+    #     y = torch.tensor([self.data[self.zarr_group][self.sample_slicer(self.y_index[i])][self.crop_slice].load().data for i in idx],
+    #                      dtype=torch.float32)
 
-        if self.transform_x:
-            x = self.transform_x(x)
+    #     if self.transform_x:
+    #         x = self.transform_x(x)
 
-        if self.transform_y:
-            y = self.transform_y(y)
+    #     if self.transform_y:
+    #         y = self.transform_y(y)
 
-        return {'x': x, 'y': y}
+    #     return {'x': x, 'y': y}
 
 def load_hmi_zarr(data_path: str, batch_size: int,
                             train_resolution=128,
                             test_resolutions=[128, 256, 512, 1024],
                             test_batch_sizes=[8, 4, 1],
-                            positional_encoding=True,
+                            positional_encoding=False,
                             grid_boundaries=[[0,1],[0,1]],
                             encode_input=True,
                             encode_output=True,
                             num_workers=0, pin_memory=True, persistent_workers=False,
                             center_crop_size=2048,
-                            hmi_std=300):
+                            hmi_std=300,
+                            train_months=(1,2,3,4,5,6,7,8,9),
+                            test_months=(11,12)):
     """Load train, validation and test dataloaders from HMI Zarr dataset
 
     Args:
@@ -165,7 +171,7 @@ def load_hmi_zarr(data_path: str, batch_size: int,
         test_batch_sizes (list, optional): Batch sizes for testing.
             Defaults to [8, 4, 1].
         positional_encoding (bool, optional): Whether or not to 
-            include positional encoding. Defaults to True.
+            include positional encoding. Defaults to False.
         grid_boundaries (list, optional): Defaults to [[0,1],[0,1]].
         encode_input (bool, optional): _description_. Defaults to True.
         encode_output (bool, optional): _description_. Defaults to True.
@@ -176,6 +182,8 @@ def load_hmi_zarr(data_path: str, batch_size: int,
             crop from center of full image. Defaults to 2048.
         hmi_std (int, optional): Standard deviation parameter 
             for normalizing HMI. Defaults to 300G.
+        train_months (tuple) : Months to use for training. Defaults to Jan-Sept.
+        test_months (tuple) : Months to use for testing. Defaults to Nov-Dec.
 
     Returns:
         train_loader
@@ -186,7 +194,8 @@ def load_hmi_zarr(data_path: str, batch_size: int,
 
     training_db = HMIZarrDataset(data_path,
                                  resolution=train_resolution, 
-                                 center_crop_size=center_crop_size)
+                                 center_crop_size=center_crop_size,
+                                 months=train_months)
     transform_x = []
     transform_y = None
 
@@ -194,7 +203,7 @@ def load_hmi_zarr(data_path: str, batch_size: int,
         x_mean = 0
         x_std = hmi_std
         
-        transform_x.append(Normalizer(x_mean, x_std))
+        transform_x.append(HMINormalizer(x_mean, x_std))
     
     if positional_encoding:
         transform_x.append(PositionalEmbedding(grid_boundaries, 0))
@@ -203,7 +212,7 @@ def load_hmi_zarr(data_path: str, batch_size: int,
         y_mean = 0
         y_std = hmi_std
         
-        transform_y = Normalizer(y_mean, y_std)
+        transform_y = HMINormalizer(y_mean, y_std)
 
     training_db.transform_x = transforms.Compose(transform_x)
     training_db.transform_y = transform_y
@@ -221,16 +230,18 @@ def load_hmi_zarr(data_path: str, batch_size: int,
         transform_x = []
         transform_y = None
         if encode_input:
-            transform_x.append(Normalizer(x_mean, x_std))
+            transform_x.append(HMINormalizer(x_mean, x_std))
         if positional_encoding:
             transform_x.append(PositionalEmbedding(grid_boundaries, 0))
 
         if encode_output:
-            transform_y = Normalizer(y_mean, y_std)
+            transform_y = HMINormalizer(y_mean, y_std)
 
         test_db = HMIZarrDataset(data_path, resolution=res, 
                               transform_x=transforms.Compose(transform_x), 
-                              transform_y=transform_y)
+                              transform_y=transform_y,
+                              months=test_months,
+                              center_crop_size=center_crop_size)
     
         test_loaders[res] = torch.utils.data.DataLoader(test_db, 
                                                         batch_size=test_batch_size,
