@@ -30,7 +30,9 @@ train_loader, test_loaders, output_encoder = load_hmi_zarr(
         train_resolution=128,
         test_resolutions=[128], 
         test_batch_sizes=[32],
-        center_crop_size=64
+        center_crop_size=64,
+        train_months = (11,),
+        test_months = (12,)
 )
 
 
@@ -80,13 +82,13 @@ trainer = Trainer(model, n_epochs=3,
                   device=device,
                   mg_patching_levels=0,
                   wandb_log=False,
-                  log_test_interval=3,
+                  log_test_interval=1,
                   use_distributed=False,
                   verbose=True)
 
 
 # %%
-# Actually train the model on our small Darcy-Flow dataset
+# Actually train the model on our HMI dataset
 
 trainer.train(train_loader, test_loaders,
               output_encoder,
@@ -110,11 +112,17 @@ trainer.train(train_loader, test_loaders,
 #
 # In practice we would train a Neural Operator on one or multiple GPUs
 
-test_samples = test_loaders[32].dataset
+test_samples = test_loaders[128].dataset
 
+
+cmap = 'gray'
+vmin = torch.min(test_samples[0]['y'][:])
+vmax = torch.max(test_samples[0]['y'][:])
 fig = plt.figure(figsize=(7, 7))
-for index in range(3):
-    data = test_samples[index]
+sample_indices = [0, 100, 200] # list(range(0,len(test_samples),int(len(test_samples)/3)))
+
+for index, sample_index in enumerate(sample_indices):
+    data = test_samples[sample_index]
     # Input x
     x = data['x']
     # Ground-truth
@@ -123,21 +131,21 @@ for index in range(3):
     out = model(x.unsqueeze(0).to(device))
 
     ax = fig.add_subplot(3, 3, index*3 + 1)
-    ax.imshow(x[0], cmap='gray')
+    ax.imshow(x[0], cmap=cmap, vmin=vmin, vmax=vmax)
     if index == 0: 
         ax.set_title('Input x')
     plt.xticks([], [])
     plt.yticks([], [])
 
     ax = fig.add_subplot(3, 3, index*3 + 2)
-    ax.imshow(y.squeeze())
+    ax.imshow(y.squeeze(), cmap=cmap, vmin=vmin, vmax=vmax)
     if index == 0: 
         ax.set_title('Ground-truth y')
     plt.xticks([], [])
     plt.yticks([], [])
 
     ax = fig.add_subplot(3, 3, index*3 + 3)
-    ax.imshow(out.squeeze().detach().cpu().numpy())
+    ax.imshow(out.squeeze().detach().cpu().numpy(), cmap=cmap, vmin=vmin, vmax=vmax)
     if index == 0: 
         ax.set_title('Model prediction')
     plt.xticks([], [])

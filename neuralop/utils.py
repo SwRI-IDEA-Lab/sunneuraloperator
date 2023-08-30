@@ -70,9 +70,9 @@ class HMINormalizer:
         self.reduce_dim = reduce_dim
 
         # x could be in shape of ntrain*n or ntrain*T*n or ntrain*n*T
-        self.mean = torch.Tensor([mean])
-        self.std = torch.Tensor([std])
-        self.eps = torch.Tensor([eps])
+        self.mean = mean
+        self.std = std
+        self.eps = eps
         
     def __call__(self, x):
         return self.encode(x)
@@ -100,18 +100,21 @@ class HMINormalizer:
         return x
 
     def cuda(self):
-        self.mean = self.mean.cuda()
-        self.std = self.std.cuda()
+        # self.mean = self.mean.cuda()
+        # self.std = self.std.cuda()
+        # self.eps = self.eps.cuda()
         return self
 
     def cpu(self):
-        self.mean = self.mean.cpu()
-        self.std = self.std.cpu()
+        # self.mean = self.mean.cpu()
+        # self.std = self.std.cpu()
+        # self.eps = self.eps.cpu()
         return self
     
     def to(self, device):
-        self.mean = self.mean.to(device)
-        self.std = self.std.to(device)
+        # self.mean = self.mean.to(device)
+        # self.std = self.std.to(device)
+        # self.eps = self.eps.to(device)
         return self
 
 

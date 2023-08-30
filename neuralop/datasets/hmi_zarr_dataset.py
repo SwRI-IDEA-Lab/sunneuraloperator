@@ -83,10 +83,12 @@ class HMIZarrDataset(Dataset):
         t_diff = np.median(np.diff(self.t_obs))
         step = int(np.round(np.timedelta64(cadence)/t_diff))
         self.x_index = [i for (i, t) in selected_times 
-         if i+step < len(selected_times) 
-            and (selected_times[i+step][1] - t) > self.cadence_window[0] 
-            and (selected_times[i+step][1] - t) < self.cadence_window[1]]
+         if i+step < len(self.t_obs) 
+            and (self.t_obs[i+step] - t) > self.cadence_window[0] 
+            and (self.t_obs[i+step] - t) < self.cadence_window[1]]
         self.y_index = [i+step for i in self.x_index]
+        #TODO: drop indices where y is not in months
+
         self.n_samples = len(self.x_index)
 
         # set up the commonly used slices
