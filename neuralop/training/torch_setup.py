@@ -65,7 +65,7 @@ def setup(config):
     else:
         is_logger = True
         if torch.cuda.is_available():
-            device = torch.device('cuda:0')
+            device = torch.device('cuda:2')
         else:
             device = torch.device('cpu')
         if 'seed' in config.distributed:
