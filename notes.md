@@ -6,6 +6,6 @@
 
 ## TODOs
 
-1. Update the loader so that x and y are both contained the months, not just x
-2. Make `__getitems` in the loader work...
-3. Convert to lightning
+1. Make `__getitems` in the loader work...
+2. Convert to lightning
+3. Revise colormap, if grayscale is not giving enough info
