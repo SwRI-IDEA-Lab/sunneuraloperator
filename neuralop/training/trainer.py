@@ -2,10 +2,10 @@ import torch
 from torch.cuda import amp
 from timeit import default_timer
 import wandb
-import sys 
-
+import sys
 import neuralop.mpu.comm as comm
 
+import matplotlib.pyplot as plt
 from .patching import MultigridPatching2D
 from .losses import LpLoss
 
@@ -248,12 +248,26 @@ class Trainer:
                     out = output_encoder.decode(out)
 
                 if (it == 0) and self.log_output and self.wandb_log and is_logger:
+
                     if out.ndim == 2:
+                        imgx = x
+                        imgy = y
                         img = out
                     else:
+                        imgx = x.squeeze()[0]
+                        imgy = y.squeeze()[0]
                         img = out.squeeze()[0]
-                    wandb.log({f'image_{log_prefix}': wandb.Image(img.unsqueeze(-1).cpu().numpy())}, commit=False)
-                
+
+                    # TODO: Revise colormap, if grayscale is not giving enough info
+                    fig, ax = plt.subplots(1,3,figsize=(12,3))
+                    ax[0].imshow(imgx.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-1,vmax=1)
+                    ax[0].set_title('x')
+                    ax[1].imshow(imgy.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-1,vmax=1)
+                    ax[1].set_title('y')
+                    ax[2].imshow(img.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-1,vmax=1)
+                    ax[2].set_title('output')
+                    wandb.log({"test_image": fig},commit=False)
+ 
                 for loss_name, loss in loss_dict.items():
                     errors[f'{log_prefix}_{loss_name}'] += loss(out, y).item()
 
