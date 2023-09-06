@@ -8,8 +8,7 @@ def test_select_months():
     dataset = HMIZarrDataset(filename, months=test_months)
     assert len(dataset) > 0
     assert all([dataset.t_obs[i].month in test_months for i in dataset.x_index])
-    #TODO: drop indices where y is not in month, see duplicate hmi_zarr_dataset.py todo
-    # assert all([dataset.t_obs[i].month in test_months for i in dataset.y_index])
+    assert all([dataset.t_obs[i].month in test_months for i in dataset.y_index])
     
 def test_cadence_filtering_default():
     filename = '/d0/magnetograms/hmi/preprocessed/hmi_stacks_2021_2022_96m_full.zarr'
