@@ -17,8 +17,8 @@ default: &DEFAULT
   # FNO related
   tfno2d:
     data_channels: 1
-    n_modes_height: 16
-    n_modes_width: 16
+    n_modes_height: 256
+    n_modes_width: 256
     hidden_channels: 32
     projection_channels: 64
     n_layers: 4
@@ -61,12 +61,12 @@ default: &DEFAULT
 
   # Dataset related
   data:
-    batch_size: 128
+    batch_size: 64
     data_path: /d0/magnetograms/hmi/preprocessed/hmi_stacks_2021_2022_96m_full.zarr
-    train_resolution: 128
-    test_resolutions: [128]
+    train_resolution: 1024
+    test_resolutions: [1024]
     test_batch_sizes: [32]
-    center_crop_size: 64
+    center_crop_size: 512
     train_months: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     test_months: [1, 12]
 
