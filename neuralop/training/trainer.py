@@ -260,15 +260,15 @@ class Trainer:
 
                     # TODO: Revise colormap, if grayscale is not giving enough info
                     fig, ax = plt.subplots(1,3,figsize=(3,1), dpi=600)
-                    ax[0].imshow(imgx.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-3,vmax=3)
+                    ax[0].imshow(imgx.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-1,vmax=1)
                     ax[0].set_title('x')
                     ax[0].set_xticks([])
                     ax[0].set_yticks([])
-                    ax[1].imshow(imgy.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-3,vmax=3)
+                    ax[1].imshow(imgy.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-1,vmax=1)
                     ax[1].set_title('y')
                     ax[1].set_xticks([])
                     ax[1].set_yticks([])
-                    ax[2].imshow(img.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-3,vmax=3)
+                    ax[2].imshow(img.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-1,vmax=1)
                     ax[2].set_title('output')
                     ax[2].set_xticks([])
                     ax[2].set_yticks([])
