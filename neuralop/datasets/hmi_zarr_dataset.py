@@ -35,6 +35,10 @@ class HMIZarrDataset(Dataset):
             cadence_epsilon: timedelta
                 tolerance for cadence, 
                     i.e. only observations with cadence +/- cadence_epsilon are used
+            x_seq_length: int
+                number of samples to use in a sequence
+            y_seq_length: int
+                number of samples to use in a sequence
     """
     def __init__(self, filename:str, 
                  months: Optional[List[int]] = None, 
@@ -45,10 +49,15 @@ class HMIZarrDataset(Dataset):
                  zarr_group:str='hmi',
                  hmi_channel:int=0, 
                  cadence: timedelta = timedelta(minutes=96), 
-                 cadence_epsilon: timedelta = timedelta(minutes=5)):
+                 cadence_epsilon: timedelta = timedelta(minutes=5),
+                 x_seq_length:int=1,
+                 y_seq_length:int=1):
         self.zarr_group = zarr_group
         self.hmi_channel = hmi_channel
-        self.cadence_window = (cadence - cadence_epsilon, cadence + cadence_epsilon)
+        self.total_timesteps = x_seq_length+y_seq_length-1
+        self.cadence_window = (cadence*self.total_timesteps - cadence_epsilon, cadence*self.total_timesteps + cadence_epsilon)
+        self.x_seq_length = x_seq_length
+        self.y_seq_length = y_seq_length
 
         if center_crop_size > resolution:
             raise RuntimeError(f"Got resolution of {resolution}."
@@ -79,25 +88,36 @@ class HMIZarrDataset(Dataset):
         selected_times = np.array([(i, t) for i, t in 
                                    enumerate(self.t_obs) if t.month in months])
         
+        # TODO:
+        # - Check that the whole sequence exists in the data
+        # - Check that the there are no gaps in the sequence
+        # - 
+
         # filter to make sure that each x observation has a corresponding valid y
         t_diff = np.median(np.diff(self.t_obs))
         step = int(np.round(np.timedelta64(cadence)/t_diff))
-        self.x_index = [i for (i, t) in selected_times 
-                        if i+step < len(self.t_obs) 
-                            and (self.t_obs[i+step] - t) > self.cadence_window[0] 
-                            and (self.t_obs[i+step] - t) < self.cadence_window[1]
-                            and (self.t_obs[i+step].month in months)]
-        self.y_index = [i+step for i in self.x_index]
+        total_sequence_duration = step*self.total_timesteps
+        self.index = [i for (i, t) in selected_times 
+                        if i+total_sequence_duration < len(self.t_obs) 
+                            and (self.t_obs[i+total_sequence_duration] - t) > self.cadence_window[0] 
+                            and (self.t_obs[i+total_sequence_duration] - t) < self.cadence_window[1]
+                            and (self.t_obs[i+total_sequence_duration].month in months)]
 
-        self.n_samples = len(self.x_index)
+        self.n_samples = len(self.index)
 
         # set up the commonly used slices
-        self.crop_slice = np.index_exp[self.crop_start:self.crop_end,
+        self.crop_slice = np.index_exp[:, self.crop_start:self.crop_end,
                                         self.crop_start:self.crop_end]
-        self.sample_slicer = lambda idx: np.index_exp[idx, 
+        self.x_sample_slicer = lambda idx: np.index_exp[idx:idx+x_seq_length*step:step, 
                                                         self.hmi_channel, 
                                                         ::self.subsample_step, 
                                                         ::self.subsample_step]
+
+        self.y_sample_slicer = lambda idx: np.index_exp[idx+x_seq_length*step:idx+total_sequence_duration+step:step, 
+                                                        self.hmi_channel, 
+                                                        ::self.subsample_step, 
+                                                        ::self.subsample_step]
+
 
     def __len__(self):
         return self.n_samples
@@ -114,12 +134,12 @@ class HMIZarrDataset(Dataset):
                 assert i < self.n_samples, f'Trying to access sample {i}'
                 f'of dataset with {self.n_samples} samples'
     
-        x = self.data[self.zarr_group][self.sample_slicer(self.x_index[idx])][self.crop_slice].load().data
+        x = self.data[self.zarr_group][self.x_sample_slicer(self.index[idx])][self.crop_slice].load().data
         if x.ndim == 2:
             x = np.expand_dims(x,axis=0)
         x = torch.tensor(x, dtype=torch.float32)
 
-        y = self.data[self.zarr_group][self.sample_slicer(self.y_index[idx])][self.crop_slice].load().data
+        y = self.data[self.zarr_group][self.y_sample_slicer(self.index[idx])][self.crop_slice].load().data
         if y.ndim == 2:
             y = np.expand_dims(y,axis=0)
         y = torch.tensor(y, dtype=torch.float32)
@@ -132,22 +152,6 @@ class HMIZarrDataset(Dataset):
 
         return {'x': x, 'y': y}
     
-    # def __getitems__(self, idx):
-    #     if torch.is_tensor(idx):
-    #         idx = idx.tolist()
-
-    #     x = torch.tensor([self.data[self.zarr_group][self.sample_slicer(self.x_index[i])][self.crop_slice].load().data for i in idx],
-    #                      dtype=torch.float32)
-    #     y = torch.tensor([self.data[self.zarr_group][self.sample_slicer(self.y_index[i])][self.crop_slice].load().data for i in idx],
-    #                      dtype=torch.float32)
-
-    #     if self.transform_x:
-    #         x = self.transform_x(x)
-
-    #     if self.transform_y:
-    #         y = self.transform_y(y)
-
-    #     return {'x': x, 'y': y}
 
 def load_hmi_zarr(data_path: str, batch_size: int,
                             train_resolution=128,
@@ -161,7 +165,9 @@ def load_hmi_zarr(data_path: str, batch_size: int,
                             center_crop_size=2048,
                             hmi_std=300,
                             train_months=(1,2,3,4,5,6,7,8,9),
-                            test_months=(11,12)):
+                            test_months=(11,12),
+                            x_seq_length=1,
+                            y_seq_length=1,):
     """Load train, validation and test dataloaders from HMI Zarr dataset
 
     Args:
@@ -186,6 +192,8 @@ def load_hmi_zarr(data_path: str, batch_size: int,
             for normalizing HMI. Defaults to 300G.
         train_months (tuple) : Months to use for training. Defaults to Jan-Sept.
         test_months (tuple) : Months to use for testing. Defaults to Nov-Dec.
+        x_seq_length (int): Number of samples to use for x. Defaults to 1.
+        y_seq_length (int): Number of samples to use for y. Defaults to 1.
 
     Returns:
         train_loader
@@ -197,7 +205,9 @@ def load_hmi_zarr(data_path: str, batch_size: int,
     training_db = HMIZarrDataset(data_path,
                                  resolution=train_resolution, 
                                  center_crop_size=center_crop_size,
-                                 months=train_months)
+                                 months=train_months,
+                                 x_seq_length=x_seq_length,
+                                 y_seq_length=y_seq_length)
     transform_x = []
     transform_y = None
 
@@ -243,7 +253,9 @@ def load_hmi_zarr(data_path: str, batch_size: int,
                               transform_x=transforms.Compose(transform_x), 
                               transform_y=transform_y,
                               months=test_months,
-                              center_crop_size=center_crop_size)
+                              center_crop_size=center_crop_size,
+                              x_seq_length=x_seq_length,
+                              y_seq_length=y_seq_length)
     
         test_loaders[res] = torch.utils.data.DataLoader(test_db, 
                                                         batch_size=test_batch_size,
