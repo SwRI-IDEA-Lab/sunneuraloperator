@@ -135,12 +135,12 @@ class HMIZarrDataset(Dataset):
                 f'of dataset with {self.n_samples} samples'
     
         x = self.data[self.zarr_group][self.x_sample_slicer(self.index[idx])][self.crop_slice].load().data
-        if x.ndim == 2:
+        if x.ndim == 3:
             x = np.expand_dims(x,axis=0)
         x = torch.tensor(x, dtype=torch.float32)
 
         y = self.data[self.zarr_group][self.y_sample_slicer(self.index[idx])][self.crop_slice].load().data
-        if y.ndim == 2:
+        if y.ndim == 3:
             y = np.expand_dims(y,axis=0)
         y = torch.tensor(y, dtype=torch.float32)
 
@@ -151,6 +151,23 @@ class HMIZarrDataset(Dataset):
             y = self.transform_y(y)
 
         return {'x': x, 'y': y}
+    
+    def getitem_times(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        if isinstance(idx, int):
+            assert idx < self.n_samples, f'Trying to access sample {idx}'
+            f'of dataset with {self.n_samples} samples'
+        else:
+            for i in idx:
+                assert i < self.n_samples, f'Trying to access sample {i}'
+                f'of dataset with {self.n_samples} samples'
+    
+        xt = self.t_obs[self.x_sample_slicer(self.index[idx])[0]]
+        yt = self.t_obs[self.y_sample_slicer(self.index[idx])[0]]
+
+        return {'xt': xt, 'yt': yt}
     
 
 def load_hmi_zarr(data_path: str, batch_size: int,
@@ -165,7 +182,9 @@ def load_hmi_zarr(data_path: str, batch_size: int,
                             center_crop_size=2048,
                             hmi_std=300,
                             train_months=(1,2,3,4,5,6,7,8,9),
-                            test_months=(11,12),
+                            test_months=(11,12), 
+                            cadence: timedelta = timedelta(minutes=96), 
+                            cadence_epsilon: timedelta = timedelta(minutes=5),
                             x_seq_length=1,
                             y_seq_length=1,):
     """Load train, validation and test dataloaders from HMI Zarr dataset
@@ -207,7 +226,9 @@ def load_hmi_zarr(data_path: str, batch_size: int,
                                  center_crop_size=center_crop_size,
                                  months=train_months,
                                  x_seq_length=x_seq_length,
-                                 y_seq_length=y_seq_length)
+                                 y_seq_length=y_seq_length,
+                                 cadence=cadence,
+                                 cadence_epsilon=cadence_epsilon)
     transform_x = []
     transform_y = None
 
@@ -255,7 +276,9 @@ def load_hmi_zarr(data_path: str, batch_size: int,
                               months=test_months,
                               center_crop_size=center_crop_size,
                               x_seq_length=x_seq_length,
-                              y_seq_length=y_seq_length)
+                              y_seq_length=y_seq_length,
+                              cadence=cadence,
+                              cadence_epsilon=cadence_epsilon)
     
         test_loaders[res] = torch.utils.data.DataLoader(test_db, 
                                                         batch_size=test_batch_size,

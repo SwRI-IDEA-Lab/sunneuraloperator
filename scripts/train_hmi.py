@@ -11,7 +11,7 @@ from neuralop import LpLoss, H1Loss
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-
+from datetime import timedelta
 
 # Read the configuration
 config_name = 'default'
@@ -32,12 +32,12 @@ if config.wandb.log and is_logger:
         wandb_name = config.wandb.name
     else:
         wandb_name = '_'.join(
-            f'{var}' for var in [config_name, config.tfno2d.n_layers, 
-                                 config.tfno2d.hidden_channels, 
-                                 config.tfno2d.n_modes_width,
-                                 config.tfno2d.n_modes_height,
-                                 config.tfno2d.factorization,
-                                 config.tfno2d.rank, 
+            f'{var}' for var in [config_name, config.tfno3d.n_layers, 
+                                 config.tfno3d.hidden_channels, 
+                                 config.tfno3d.n_modes_width,
+                                 config.tfno3d.n_modes_height,
+                                 config.tfno3d.factorization,
+                                 config.tfno3d.rank, 
                                  config.patching.levels, 
                                  config.patching.padding])
     wandb.init(config=config, name=wandb_name, group=config.wandb.group,
@@ -61,7 +61,11 @@ train_loader, test_loaders, output_encoder = load_hmi_zarr(
         test_resolutions=config.data.test_resolutions, test_batch_sizes=config.data.test_batch_sizes,
         center_crop_size=config.data.center_crop_size,
         train_months=config.data.train_months,
-        test_months=config.data.test_months
+        test_months=config.data.test_months,
+        x_seq_length=config.data.x_seq_length,
+        y_seq_length=config.data.y_seq_length,
+        cadence=timedelta(minutes=config.data.cadence),
+        cadence_epsilon=timedelta(minutes=config.data.cadence_epsilon)
         )
 
 model = get_model(config)

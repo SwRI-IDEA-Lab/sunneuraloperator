@@ -4,7 +4,7 @@ default: &DEFAULT
   # For computing compression
   n_params_baseline: None
   verbose: True
-  arch: 'tfno2d'
+  arch: 'tfno3d'
 
   #Distributed computing
   distributed:
@@ -15,12 +15,13 @@ default: &DEFAULT
     seed: 666
 
   # FNO related
-  tfno2d:
+  tfno3d:
     data_channels: 1
-    n_modes_height: 256
-    n_modes_width: 256
+    n_modes_height: 64
+    n_modes_width: 64
+    n_modes_depth: 8
     hidden_channels: 32
-    projection_channels: 64
+    projection_channels: 128
     n_layers: 4
     domain_padding: None #0.078125
     domain_padding_mode: 'one-sided' #symmetric
@@ -63,12 +64,16 @@ default: &DEFAULT
   data:
     batch_size: 64
     data_path: /d0/magnetograms/hmi/preprocessed/hmi_stacks_2021_2022_96m_full.zarr
-    train_resolution: 1024
-    test_resolutions: [1024]
+    train_resolution: 2048
+    test_resolutions: [2048]
     test_batch_sizes: [32]
-    center_crop_size: 512
+    center_crop_size: 128
     train_months: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     test_months: [1, 12]
+    cadence: 96
+    cadence_epsilon: 5
+    x_seq_length: 16
+    y_seq_length: 1 
 
   # Patching
   patching:
