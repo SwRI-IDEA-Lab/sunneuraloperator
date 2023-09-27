@@ -89,7 +89,7 @@ default: &DEFAULT
     name: None # If None, config will be used but you can override it here
     group: '' 
     project: "hmi_fno"
-    entity: None # put your username here
+    entity: idea-lab # put your username here
     sweep: False
     log_output: True
     log_test_interval: 1
