@@ -114,8 +114,8 @@ else:
 
 
 # Creating the losses
-l2loss = LpLoss(d=2, p=2)
-h1loss = H1Loss(d=2)
+l2loss = LpLoss(d=3, p=2)
+h1loss = H1Loss(d=3)
 if config.opt.training_loss == 'l2':
     train_loss = l2loss
 elif config.opt.training_loss == 'h1':
