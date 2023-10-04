@@ -69,9 +69,10 @@ default: &DEFAULT
     train_resolution: 2048
     test_resolutions: [2048]
     test_batch_sizes: [32]
-    center_crop_size: 128
-    train_months: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    test_months: [1, 12]
+    crop_size: 128
+    random_crop: True
+    train_months: [1]
+    test_months: [3]
     cadence: 96
     cadence_epsilon: 5
     x_seq_length: 16

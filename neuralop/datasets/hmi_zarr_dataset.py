@@ -20,8 +20,10 @@ class HMIZarrDataset(Dataset):
                 which months to use in this dataset
             resolution: int
                 resolution after subsampling
-            center_crop_size: int
-                size of center crop
+            crop_size: int
+                size of crop
+            random_crop: bool
+                whether to take random crops or centered crops
             transform_x:
                 input transformations to normalize and/or append a positional encoder
             transform_y:
@@ -43,7 +45,8 @@ class HMIZarrDataset(Dataset):
     def __init__(self, filename:str, 
                  months: Optional[List[int]] = None, 
                  resolution: int = 4096, 
-                 center_crop_size: int = 2048, 
+                 crop_size: int = 2048,
+                 random_crop: bool = True, 
                  transform_x = None, 
                  transform_y = None, 
                  zarr_group:str='hmi',
@@ -59,10 +62,10 @@ class HMIZarrDataset(Dataset):
         self.x_seq_length = x_seq_length
         self.y_seq_length = y_seq_length
 
-        if center_crop_size > resolution:
+        if crop_size > resolution:
             raise RuntimeError(f"Got resolution of {resolution}."
                                "Resolution be larger than center_crop_size,"
-                               f"found {center_crop_size}.")
+                               f"found {crop_size}.")
         
         resolution_to_step = {128:32, 256:16, 512:8, 1024:4, 2048:2, 4096:1}
         try:
@@ -73,8 +76,12 @@ class HMIZarrDataset(Dataset):
 
         self.subsample_step = subsample_step
         self.filename = str(filename)
-        self.crop_start = int((resolution - center_crop_size)/2)
-        self.crop_end = int(self.crop_start+center_crop_size)
+
+        # define bounds of crops to be within the center of the disk
+        self.min_crop_start = resolution//4
+        self.max_crop_start = resolution - self.min_crop_start - crop_size + 1
+        self.crop_size = crop_size
+        self.random_crop = random_crop
         
         self.transform_x = transform_x
         self.transform_y = transform_y
@@ -88,11 +95,6 @@ class HMIZarrDataset(Dataset):
         selected_times = np.array([(i, t) for i, t in 
                                    enumerate(self.t_obs) if t.month in months])
         
-        # TODO:
-        # - Check that the whole sequence exists in the data
-        # - Check that the there are no gaps in the sequence
-        # - 
-
         # filter to make sure that each x observation has a corresponding valid y
         t_diff = np.median(np.diff(self.t_obs))
         step = int(np.round(np.timedelta64(cadence)/t_diff))
@@ -106,8 +108,6 @@ class HMIZarrDataset(Dataset):
         self.n_samples = len(self.index)
 
         # set up the commonly used slices
-        self.crop_slice = np.index_exp[:, self.crop_start:self.crop_end,
-                                        self.crop_start:self.crop_end]
         self.x_sample_slicer = lambda idx: np.index_exp[idx:idx+x_seq_length*step:step, 
                                                         self.hmi_channel, 
                                                         ::self.subsample_step, 
@@ -133,13 +133,20 @@ class HMIZarrDataset(Dataset):
             for i in idx:
                 assert i < self.n_samples, f'Trying to access sample {i}'
                 f'of dataset with {self.n_samples} samples'
+
+        if self.random_crop:
+            crop_start = np.random.randint(self.min_crop_start,self.max_crop_start,2)
+            crop_end = crop_start + self.crop_size
+        else:
+            crop_start = int((self.resolution - self.crop_size)/2)
+            crop_end = int(crop_start+self.crop_size)
     
-        x = self.data[self.zarr_group][self.x_sample_slicer(self.index[idx])][self.crop_slice].load().data
+        x = self.data[self.zarr_group][self.x_sample_slicer(self.index[idx])][:, crop_start[0]:crop_end[0], crop_start[1]:crop_end[1]].load().data
         if x.ndim == 3:
             x = np.expand_dims(x,axis=0)
         x = torch.tensor(x, dtype=torch.float32)
 
-        y = self.data[self.zarr_group][self.y_sample_slicer(self.index[idx])][self.crop_slice].load().data
+        y = self.data[self.zarr_group][self.y_sample_slicer(self.index[idx])][:, crop_start[0]:crop_end[0], crop_start[1]:crop_end[1]].load().data
         if y.ndim == 3:
             y = np.expand_dims(y,axis=0)
         y = torch.tensor(y, dtype=torch.float32)
@@ -179,7 +186,8 @@ def load_hmi_zarr(data_path: str, batch_size: int,
                             encode_input=True,
                             encode_output=True,
                             num_workers=0, pin_memory=True, persistent_workers=False,
-                            center_crop_size=2048,
+                            crop_size=2048,
+                            random_crop=True,
                             hmi_std=300,
                             train_months=(1,2,3,4,5,6,7,8,9),
                             test_months=(11,12), 
@@ -205,8 +213,9 @@ def load_hmi_zarr(data_path: str, batch_size: int,
         num_workers (int, optional): _description_. Defaults to 0.
         pin_memory (bool, optional): _description_. Defaults to True.
         persistent_workers (bool, optional): _description_. Defaults to False.
-        center_crop_size (int, optional): Size in pixels to 
+        crop_size (int, optional): Size in pixels to 
             crop from center of full image. Defaults to 2048.
+        random_crop (bool): Whether to take random or centered crops. Defaults to True.
         hmi_std (int, optional): Standard deviation parameter 
             for normalizing HMI. Defaults to 300G.
         train_months (tuple) : Months to use for training. Defaults to Jan-Sept.
@@ -223,7 +232,8 @@ def load_hmi_zarr(data_path: str, batch_size: int,
 
     training_db = HMIZarrDataset(data_path,
                                  resolution=train_resolution, 
-                                 center_crop_size=center_crop_size,
+                                 crop_size=crop_size,
+                                 random_crop=random_crop,
                                  months=train_months,
                                  x_seq_length=x_seq_length,
                                  y_seq_length=y_seq_length,
@@ -274,7 +284,8 @@ def load_hmi_zarr(data_path: str, batch_size: int,
                               transform_x=transforms.Compose(transform_x), 
                               transform_y=transform_y,
                               months=test_months,
-                              center_crop_size=center_crop_size,
+                              crop_size=crop_size,
+                              random_crop=False,
                               x_seq_length=x_seq_length,
                               y_seq_length=y_seq_length,
                               cadence=cadence,

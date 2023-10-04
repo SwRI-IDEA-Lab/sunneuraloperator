@@ -6,6 +6,8 @@ import sys
 import neuralop.mpu.comm as comm
 
 import matplotlib.pyplot as plt
+from sunpy.visualization.colormaps import cm
+import numpy as np
 from .patching import MultigridPatching2D
 from .losses import LpLoss
 
@@ -259,20 +261,35 @@ class Trainer:
                         img = out.squeeze()[0]
 
                     # TODO: Revise colormap, if grayscale is not giving enough info
-                    fig, ax = plt.subplots(1,3,figsize=(3,1), dpi=600)
-                    ax[0].imshow(imgx.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-1,vmax=1)
-                    ax[0].set_title('x')
-                    ax[0].set_xticks([])
-                    ax[0].set_yticks([])
-                    ax[1].imshow(imgy.unsqueeze(-1).cpu().numpy(),cmap='gray',vmin=-1,vmax=1)
-                    ax[1].set_title('y')
-                    ax[1].set_xticks([])
-                    ax[1].set_yticks([])
-                    ax[2].imshow(img.unsqueeze(-1).cpu().numpy(),cmap='gray')
-                    plt.colorbar(ax=ax[2])
-                    ax[2].set_title('output')
-                    ax[2].set_xticks([])
-                    ax[2].set_yticks([])
+                    # fig, ax = plt.subplots(1,2,figsize=(4,1), dpi=600)
+                    
+
+                    fig = plt.figure(figsize=[6.1,2], constrained_layout=True, dpi=400)
+                    spec = fig.add_gridspec(ncols=4, nrows=1, wspace=0, hspace=0, width_ratios=[1,1,1, 0.1])
+                    ax1 = fig.add_subplot(spec[0, 0])
+                    ax1.imshow(imgx[0].unsqueeze(-1).cpu().numpy(),cmap='hmimag', vmin=-1, vmax=1)
+                    ax1.set_title('x')
+                    ax1.set_xticks([])
+                    ax1.set_yticks([])
+
+
+                    ax2 = fig.add_subplot(spec[0, 1])
+                    ax2.imshow(imgy[0].unsqueeze(-1).cpu().numpy(),cmap='hmimag', vmin=-1, vmax=1)
+                    ax2.set_title('y')
+                    ax2.set_xticks([])
+                    ax2.set_yticks([])
+
+                    vlim = np.percentile(np.abs(img[0].unsqueeze(-1).cpu().numpy()),99)
+
+                    ax3 = fig.add_subplot(spec[0, 2])
+                    im = ax3.imshow(img[0].unsqueeze(-1).cpu().numpy(),cmap='hmimag', vmin=-vlim, vmax=vlim)
+                    ax3.set_title('output')
+                    ax3.set_xticks([])
+                    ax3.set_yticks([])
+
+                    cax = fig.add_subplot(spec[0,3])
+                    fig.colorbar(im,cax=cax)
+
                     wandb.log({"test_image": fig},commit=False)
                     plt.close(fig)
  
