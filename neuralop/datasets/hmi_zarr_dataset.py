@@ -61,6 +61,7 @@ class HMIZarrDataset(Dataset):
         self.cadence_window = (cadence*self.total_timesteps - cadence_epsilon, cadence*self.total_timesteps + cadence_epsilon)
         self.x_seq_length = x_seq_length
         self.y_seq_length = y_seq_length
+        self.resolution = resolution
 
         if crop_size > resolution:
             raise RuntimeError(f"Got resolution of {resolution}."
